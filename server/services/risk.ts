@@ -20,54 +20,76 @@ export async function calculateRisk(userId: string) {
   if (logs.length < 3) {
     return {
       riskLevel: "Stable",
-      factors: { message: "Not enough data for assessment" }
+      factors: { 
+        message: "Not enough data for assessment (min 3 logs)",
+        variability: "Low",
+        compliance: "Non-Compliant",
+        suggestion: "Please log at least 3 glucose readings to generate a risk assessment."
+      }
     };
   }
 
   // 1. Glucose Over Time & Trends
-  // Calculate average glucose
   const values = logs.map(l => Number(l.value));
   const avgGlucose = values.reduce((a, b) => a + b, 0) / values.length;
 
-  // 2. Variability (Standard Deviation)
+  // 2. Variability (Trend Intelligence)
   const variance = values.reduce((sum, val) => sum + Math.pow(val - avgGlucose, 2), 0) / values.length;
   const stdDev = Math.sqrt(variance);
   const cv = (stdDev / avgGlucose) * 100; // Coefficient of Variation
 
-  // 3. Compliance (Missed days in last 7 days)
-  // Simple check: how many unique days have logs?
+  let variabilityScore: "Low" | "Moderate" | "High" = "Low";
+  if (cv > 36) variabilityScore = "High";
+  else if (cv > 20) variabilityScore = "Moderate";
+
+  // 3. Compliance Tracking (Behavioral Layer)
   const uniqueDays = new Set(logs.map(l => l.measuredAt.toISOString().split('T')[0])).size;
-  const complianceScore = Math.min(uniqueDays / 14, 1); // rough score
+  const compliancePercentage = (uniqueDays / 14) * 100;
 
-  // 4. Determine Risk State
-  // Stable, Moderate, High, Critical
-  let riskLevel = "Stable";
-  const factors: any = {
-    avgGlucose: Math.round(avgGlucose),
-    stdDev: Math.round(stdDev),
-    cv: Math.round(cv),
-    compliance: Math.round(complianceScore * 100) + "%"
-  };
+  let complianceStatus: "Compliant" | "Partially Compliant" | "Non-Compliant" = "Non-Compliant";
+  if (compliancePercentage >= 80) complianceStatus = "Compliant";
+  else if (compliancePercentage >= 50) complianceStatus = "Partially Compliant";
 
-  // Logic inspired by general diabetic guidelines (NOT medical diagnosis)
+  // 4. Determine Risk State (Doctor-Facing Output)
+  let riskLevel: "Stable" | "Moderate" | "High" | "Critical" = "Stable";
+  
   // High avg glucose
   if (avgGlucose > 180) riskLevel = "Moderate";
   if (avgGlucose > 250) riskLevel = "High";
 
-  // High variability
-  if (cv > 36) { // >36% is often considered unstable
+  // Impact of variability
+  if (variabilityScore === "High") {
     if (riskLevel === "Stable") riskLevel = "Moderate";
     else if (riskLevel === "Moderate") riskLevel = "High";
+    else if (riskLevel === "High") riskLevel = "Critical";
   }
 
   // Critical conditions (Hypo/Hyper events)
   const hypoEvents = values.filter(v => v < 70).length;
   const hyperEvents = values.filter(v => v > 300).length;
 
-  if (hypoEvents > 0 || hyperEvents > 0) {
+  if (hypoEvents > 0 || hyperEvents > 2) {
     riskLevel = "Critical";
-    factors.alerts = { hypo: hypoEvents, hyper: hyperEvents };
   }
+
+  // 5. Clinical Suggestions (Decision Support)
+  const suggestions = {
+    Stable: "Maintain current monitoring frequency. Target fasting glucose < 130 mg/dL.",
+    Moderate: "Review carbohydrate intake and activity levels. Increase testing frequency.",
+    High: "Schedule clinical review within 48-72 hours. Check for medication adherence.",
+    Critical: "Immediate clinical intervention recommended. High risk of acute complications."
+  };
+
+  const factors = {
+    avgGlucose: Math.round(avgGlucose),
+    stdDev: Math.round(stdDev),
+    cv: Math.round(cv),
+    variability: variabilityScore,
+    compliance: complianceStatus,
+    complianceRate: Math.round(compliancePercentage) + "%",
+    alerts: { hypo: hypoEvents, hyper: hyperEvents },
+    suggestion: suggestions[riskLevel]
+  };
 
   return { riskLevel, factors };
 }

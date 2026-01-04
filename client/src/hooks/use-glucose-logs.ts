@@ -4,9 +4,8 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 
 // === TYPES ===
-// Inferring from schema for now, but strictly these should come from shared/schema exports if possible
-// Re-defining briefly to match the expected usage in components
-type GlucoseLog = z.infer<typeof api.glucoseLogs.list.responses[200]>[number];
+export type GlucoseLog = z.infer<typeof api.glucoseLogs.list.responses[200]>[number];
+export type RiskAssessment = z.infer<typeof api.riskAssessment.getLatest.responses[200]>;
 
 // === QUERY KEYS ===
 export const glucoseKeys = {

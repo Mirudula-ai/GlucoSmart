@@ -1,0 +1,119 @@
+I already have a working React + Node.js diabetes monitoring dashboard with:
+
+Manual and OCR-based glucose entry
+
+Time-series glucose graphs
+
+Logs history table
+
+I want to extend the existing system, not redesign it.
+
+TASK:
+
+Implement clinical intelligence layers on top of the existing glucose data for a doctor-centric diabetes monitoring system.
+
+1. Glucose Categorization (Basic Layer)
+
+Classify each glucose reading based on:
+
+Type: Fasting / Post-Prandial / Random
+
+Value ranges (ADA-style thresholds)
+
+Store this classification with each reading.
+
+2. Glucose Variability Analysis (Trend Intelligence)
+
+Add logic to analyze glucose trends over time, including:
+
+Sudden spikes or drops between consecutive readings
+
+High fluctuation frequency within short time periods
+
+Rising trend vs stable vs declining trend
+
+Generate a variability score or label (Low / Moderate / High variability).
+
+This should be derived from historical readings, not manual input.
+
+3. Compliance Tracking (Behavioral Layer)
+
+Track patient compliance using existing logs:
+
+Missed logging days
+
+Irregular logging intervals
+
+Manual vs OCR entries
+
+Generate compliance status:
+
+Compliant
+
+Partially Compliant
+
+Non-Compliant
+
+This status should update automatically as new data is added.
+
+4. Risk State Assessment (Doctor-Facing Output)
+
+Using:
+
+Average glucose levels
+
+Variability analysis
+
+Compliance status
+
+Automatically assign a Risk State:
+
+Stable
+
+Moderate Risk
+
+High Risk
+
+Critical
+
+Risk state must be derived, not manually entered.
+
+5. Clinical Suggestions (Decision Support, NOT Diagnosis)
+
+For each risk state, generate non-diagnostic suggestions, such as:
+
+Lifestyle attention
+
+Monitoring frequency recommendation
+
+Doctor review urgency
+
+Do NOT claim diagnosis or prediction.
+This is a clinical decision support tool, not a diagnostic system.
+
+6. UI Integration
+
+Show Risk State clearly on the dashboard
+
+Show Variability and Compliance as badges or indicators
+
+Keep UI clean and doctor-friendly
+
+Do not remove existing graphs or logs
+
+7. Data Storage
+
+Persist:
+
+Readings
+
+Variability status
+
+Compliance status
+
+Risk state
+
+So doctors can review patient history over many days or weeks.
+
+Focus on logic and integration, not redesign.
+Use rule-based analysis (no machine learning required).
