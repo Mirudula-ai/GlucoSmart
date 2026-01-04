@@ -51,8 +51,15 @@ export async function registerRoutes(
 
   app.post(api.glucoseLogs.create.path, requireAuth, async (req: any, res) => {
     try {
-      const input = api.glucoseLogs.create.input.parse(req.body);
       const userId = req.user.claims.sub;
+      
+      // Parse with coercion for dates/numbers
+      const bodySchema = api.glucoseLogs.create.input.extend({
+        measuredAt: z.coerce.date(),
+        value: z.string(), // numeric is string in drizzle-zod usually, or use z.coerce.string()
+      });
+      
+      const input = bodySchema.parse(req.body);
       
       const log = await storage.createGlucoseLog({
         ...input,

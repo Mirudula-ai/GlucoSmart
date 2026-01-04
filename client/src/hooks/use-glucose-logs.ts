@@ -43,14 +43,16 @@ export function useCreateGlucoseLog() {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async (data: InsertGlucoseLog) => {
+    mutationFn: async (data: Omit<InsertGlucoseLog, 'userId'>) => {
       // Validate input before sending (client-side check)
-      const validated = api.glucoseLogs.create.input.parse(data);
-      
+      // We omit userId because the server will fill it from the session
       const res = await fetch(api.glucoseLogs.create.path, {
         method: api.glucoseLogs.create.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
+        body: JSON.stringify({
+          ...data,
+          measuredAt: data.measuredAt instanceof Date ? data.measuredAt.toISOString() : data.measuredAt
+        }),
         credentials: "include",
       });
 
