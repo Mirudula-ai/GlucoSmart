@@ -1,0 +1,81 @@
+Build a Smart Diabetic Management System with the following specifications:
+
+1. General Requirements:
+
+Full web application with login/authentication system (doctor and patient roles optional).
+
+Database-backed (SQLite/PostgreSQL/MySQL—your choice), but no predefined patient data. All entries must be fresh and user-generated.
+
+Modern, clean UI (I have already created the UI, integrate it).
+
+Python-based backend (preferably Flask or FastAPI) or Node.js if recommended, with proper API routes.
+
+Must handle file uploads: PDF, image, or text lab reports.
+
+2. OCR + Manual Entry:
+
+OCR extracts values from uploaded lab reports.
+
+Manual entry fallback: users or doctors can manually enter values if OCR fails.
+
+Extracted values must appear in editable fields for confirmation.
+
+OCR should:
+
+Read entire report
+
+Preserve line structure
+
+Detect sections like “Fasting Blood Sugar”, “Post Prandial”, “HbA1c”
+
+Extract candidate numbers in realistic ranges (70–600 mg/dL)
+
+Only propose values; doctor confirms before saving
+
+3. Core Tracking Model (No predefined data; store fresh entries):
+
+Glucose Over Time: Store daily/weekly values for each patient, forming a timeline.
+
+Variability: Track fluctuations (e.g., standard deviation or daily min/max) for risk assessment.
+
+Compliance: Track if patients update values regularly (missed days, skipped logs).
+
+Risk State: Assess risk as Stable, Moderate, High, or Critical based on trends, variability, and compliance. Do not diagnose diabetes.
+
+4. Features:
+
+Dashboard for doctors: view patient history, glucose trends, variability, compliance, and risk state.
+
+Patient dashboard: view own confirmed data, trends, and doctor feedback (read-only for risk state).
+
+Ability to add new patients (no predefined names).
+
+Store uploaded reports in the database or filesystem with references to patient records.
+
+Data validation for all inputs; ensure values are realistic.
+
+5. Technology Requirements:
+
+Python 3.x, Streamlit (or Flask/FastAPI if needed)
+
+OCR via pytesseract or equivalent
+
+Database integration (SQLite/PostgreSQL/MySQL)
+
+Clean modular code: separate modules for OCR, database, logic, and UI
+
+Include functionality to generate report PDF for each patient if needed.
+
+6. Bonus (optional, if Leplet supports):
+
+Trend charts for glucose values (line/bar charts)
+
+Alert system if risk state escalates
+
+Important Notes:
+
+Start completely fresh; no sample data. All patients must be added manually.
+
+System should be “doctor-driven”, not patient-driven: patients can only input or confirm, doctors can analyze and track.
+
+Do not declare diabetes; only provide risk states.

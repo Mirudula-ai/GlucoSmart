@@ -6,6 +6,7 @@ import { z } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import multer from "multer";
 import OpenAI from "openai";
+import { updateRiskAssessment } from "./services/risk";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -58,11 +59,13 @@ export async function registerRoutes(
         userId,
       });
 
-      // After creating log, maybe update risk assessment?
-      // For MVP, simplistic check:
-      const recentLogs = await storage.getGlucoseLogs(userId);
-      // Calculate basic risk
-      // ... logic here or separate service
+      // Update risk assessment after new log
+      try {
+        await updateRiskAssessment(userId);
+      } catch (err) {
+        console.error("Failed to update risk assessment:", err);
+        // Don't fail the request if risk calculation fails
+      }
       
       res.status(201).json(log);
     } catch (err) {
@@ -74,6 +77,35 @@ export async function registerRoutes(
       }
       res.status(500).json({ message: "Internal Server Error" });
     }
+  });
+
+  app.patch(api.glucoseLogs.confirm.path, requireAuth, async (req: any, res) => {
+    try {
+      const id = Number(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      const log = await storage.confirmGlucoseLog(id);
+      if (!log) return res.status(404).json({ message: "Log not found" });
+
+      // Recalculate risk on confirmation
+      try {
+        await updateRiskAssessment(userId);
+      } catch (err) {
+        console.error("Failed to update risk assessment:", err);
+      }
+
+      res.json(log);
+    } catch (err) {
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  });
+
+  // === Risk Assessment ===
+  app.get(api.riskAssessment.getLatest.path, requireAuth, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const assessment = await storage.getLatestRiskAssessment(userId);
+    if (!assessment) return res.status(404).json({ message: "No assessment found" });
+    res.json(assessment);
   });
 
   // === OCR Processing ===
@@ -89,7 +121,7 @@ export async function registerRoutes(
 
       // Call OpenAI Vision
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", // Or gpt-4.1 if available via Replit
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
