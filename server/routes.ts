@@ -54,9 +54,9 @@ export async function registerRoutes(
       const userId = req.user.claims.sub;
       
       // Parse with coercion for dates/numbers
-      const bodySchema = api.glucoseLogs.create.input.extend({
+      const bodySchema = api.glucoseLogs.create.input.omit({ userId: true }).extend({
         measuredAt: z.coerce.date(),
-        value: z.string(), // numeric is string in drizzle-zod usually, or use z.coerce.string()
+        value: z.string(), 
       });
       
       const input = bodySchema.parse(req.body);
