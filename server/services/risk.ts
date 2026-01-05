@@ -21,7 +21,7 @@ export async function calculateRisk(userId: string) {
     return {
       riskLevel: "Stable",
       factors: { 
-        message: "Not enough data for assessment (min 3 logs)",
+        message: "Insufficient data",
         variability: "Low",
         compliance: "Non-Compliant",
         suggestion: "Please log at least 3 glucose readings to generate a risk assessment."
@@ -29,50 +29,65 @@ export async function calculateRisk(userId: string) {
     };
   }
 
-  // 1. Glucose Over Time & Trends
+  // 1. Mean and Standard Deviation
   const values = logs.map(l => Number(l.value));
-  const avgGlucose = values.reduce((a, b) => a + b, 0) / values.length;
-
-  // 2. Variability (Trend Intelligence)
-  const variance = values.reduce((sum, val) => sum + Math.pow(val - avgGlucose, 2), 0) / values.length;
+  const n = values.length;
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
   const stdDev = Math.sqrt(variance);
-  const cv = (stdDev / avgGlucose) * 100; // Coefficient of Variation
+  
+  // 2. CV (%) = (Std Dev / Mean) × 100
+  const cv = (stdDev / mean) * 100;
 
   let variabilityScore: "Low" | "Moderate" | "High" = "Low";
   if (cv > 36) variabilityScore = "High";
   else if (cv > 20) variabilityScore = "Moderate";
 
-  // 3. Compliance Tracking (Behavioral Layer)
+  // 3. Compliance Calculation
+  // (number of days with at least one glucose reading ÷ number of days between first and last record) × 100
+  const sortedDates = logs.map(l => new Date(l.measuredAt).getTime()).sort((a, b) => a - b);
+  const firstDate = new Date(sortedDates[0]);
+  const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+  
+  const diffTime = Math.abs(lastDate.getTime() - firstDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive of start and end
+  
   const uniqueDays = new Set(logs.map(l => l.measuredAt.toISOString().split('T')[0])).size;
-  const compliancePercentage = (uniqueDays / 14) * 100;
+  const compliancePercentage = (uniqueDays / diffDays) * 100;
 
   let complianceStatus: "Compliant" | "Partially Compliant" | "Non-Compliant" = "Non-Compliant";
   if (compliancePercentage >= 80) complianceStatus = "Compliant";
   else if (compliancePercentage >= 50) complianceStatus = "Partially Compliant";
 
-  // 4. Determine Risk State (Doctor-Facing Output)
+  // 4. Determine Risk State and Alerts
   let riskLevel: "Stable" | "Moderate" | "High" | "Critical" = "Stable";
+  const alerts: string[] = [];
   
-  // High avg glucose
-  if (avgGlucose > 180) riskLevel = "Moderate";
-  if (avgGlucose > 250) riskLevel = "High";
+  if (cv > 36) alerts.push("High variability detected");
+  else if (cv > 20) alerts.push("Moderate variability detected");
 
-  // Impact of variability
-  if (variabilityScore === "High") {
-    if (riskLevel === "Stable") riskLevel = "Moderate";
-    else if (riskLevel === "Moderate") riskLevel = "High";
-    else if (riskLevel === "High") riskLevel = "Critical";
+  if (mean > 250) {
+    riskLevel = "High";
+    alerts.push("Sustained hyperglycemia");
+  } else if (mean > 180) {
+    riskLevel = "Moderate";
+    alerts.push("Elevated average glucose");
   }
 
-  // Critical conditions (Hypo/Hyper events)
   const hypoEvents = values.filter(v => v < 70).length;
   const hyperEvents = values.filter(v => v > 300).length;
 
-  if (hypoEvents > 0 || hyperEvents > 2) {
+  if (hypoEvents > 0) {
     riskLevel = "Critical";
+    alerts.push(`${hypoEvents} hypoglycemic event(s) detected`);
+  }
+  if (hyperEvents > 2) {
+    riskLevel = "Critical";
+    alerts.push("Frequent severe hyperglycemia");
   }
 
-  // 5. Clinical Suggestions (Decision Support)
+  // 5. Clinical Suggestions
   const suggestions = {
     Stable: "Maintain current monitoring frequency. Target fasting glucose < 130 mg/dL.",
     Moderate: "Review carbohydrate intake and activity levels. Increase testing frequency.",
@@ -81,13 +96,13 @@ export async function calculateRisk(userId: string) {
   };
 
   const factors = {
-    avgGlucose: Math.round(avgGlucose),
-    stdDev: Math.round(stdDev),
-    cv: Math.round(cv),
+    avgGlucose: Math.round(mean),
+    stdDev: Math.round(stdDev * 10) / 10,
+    cv: Math.round(cv * 10) / 10,
     variability: variabilityScore,
     compliance: complianceStatus,
     complianceRate: Math.round(compliancePercentage) + "%",
-    alerts: { hypo: hypoEvents, hyper: hyperEvents },
+    alerts: alerts.length > 0 ? alerts.join(", ") : "No acute alerts",
     suggestion: suggestions[riskLevel]
   };
 
