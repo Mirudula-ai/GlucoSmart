@@ -91,13 +91,15 @@ export function RiskCard({ userId }: { userId?: string }) {
           </h4>
           {risk.factors && (
              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-muted-foreground">
-               {/* Just simpler rendering of JSON factors */}
-               {Object.entries(risk.factors as Record<string, any>).map(([key, val]) => (
-                 <div key={key} className="flex justify-between items-center bg-secondary/30 p-2 rounded-lg">
-                   <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
-                   <span className="font-mono font-medium text-foreground">{String(val)}</span>
-                 </div>
-               ))}
+               {/* Just simpler rendering of JSON factors, excluding alerts */}
+               {Object.entries(risk.factors as Record<string, any>)
+                 .filter(([key]) => key !== 'alerts')
+                 .map(([key, val]) => (
+                   <div key={key} className="flex justify-between items-center bg-secondary/30 p-2 rounded-lg">
+                     <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
+                     <span className="font-mono font-medium text-foreground">{String(val)}</span>
+                   </div>
+                 ))}
              </div>
           )}
         </CardContent>
