@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, buildUrl, type InsertGlucoseLog, errorSchemas } from "@shared/routes";
+import { api, buildUrl, errorSchemas } from "@shared/routes";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import type { GlucoseLog as SchemaGlucoseLog, InsertGlucoseLog } from "@shared/schema";
 
 // === TYPES ===
-export type GlucoseLog = z.infer<typeof api.glucoseLogs.list.responses[200]>[number];
+export type GlucoseLog = SchemaGlucoseLog;
 export type RiskAssessment = z.infer<typeof api.riskAssessment.getLatest.responses[200]>;
 
 // === QUERY KEYS ===

@@ -85,11 +85,11 @@ export async function calculateRisk(userId: string) {
 
   if (hypoEvents > 0) {
     riskLevel = "Critical";
-    alerts.push(`${hypoEvents} hypoglycemic event(s) detected`);
+    alerts.push(`Critical low: ${hypoEvents} hypoglycemic event(s) detected`);
   }
   if (hyperEvents > 2) {
     riskLevel = "Critical";
-    alerts.push("Frequent severe hyperglycemia");
+    alerts.push("Severe hyperglycemia: Frequent high readings detected");
   }
 
   const factors = {

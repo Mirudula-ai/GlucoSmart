@@ -44,7 +44,6 @@ export async function registerRoutes(
   // === Logs ===
   app.get(api.glucoseLogs.list.path, requireAuth, async (req: any, res) => {
     const userId = req.user.claims.sub;
-    // TODO: implement doctor access to other patients if needed
     const logs = await storage.getGlucoseLogs(userId);
     res.json(logs);
   });
