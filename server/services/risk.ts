@@ -34,6 +34,7 @@ export async function calculateRisk(userId: string) {
   const n = values.length;
   const mean = values.reduce((a, b) => a + b, 0) / n;
   
+  // Dynamic calculation every time: Std Dev = sqrt( Σ(x − mean)² / n )
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
   const stdDev = Math.sqrt(variance);
   
@@ -45,15 +46,16 @@ export async function calculateRisk(userId: string) {
   else if (cv > 20) variabilityScore = "Moderate";
 
   // 3. Compliance Calculation
-  // (number of days with at least one glucose reading ÷ number of days between first and last record) × 100
-  const sortedDates = logs.map(l => new Date(l.measuredAt).getTime()).sort((a, b) => a - b);
-  const firstDate = new Date(sortedDates[0]);
-  const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+  // Define compliance as: (number of days with at least one glucose reading ÷ number of days between first and last record) × 100
+  const sortedLogs = [...logs].sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime());
+  const firstDate = new Date(sortedLogs[0].measuredAt);
+  const lastDate = new Date(sortedLogs[sortedLogs.length - 1].measuredAt);
   
+  // Calculate day difference (inclusive)
   const diffTime = Math.abs(lastDate.getTime() - firstDate.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive of start and end
+  const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
   
-  const uniqueDays = new Set(logs.map(l => l.measuredAt.toISOString().split('T')[0])).size;
+  const uniqueDays = new Set(logs.map(l => new Date(l.measuredAt).toISOString().split('T')[0])).size;
   const compliancePercentage = (uniqueDays / diffDays) * 100;
 
   let complianceStatus: "Compliant" | "Partially Compliant" | "Non-Compliant" = "Non-Compliant";
@@ -64,9 +66,11 @@ export async function calculateRisk(userId: string) {
   let riskLevel: "Stable" | "Moderate" | "High" | "Critical" = "Stable";
   const alerts: string[] = [];
   
+  // Variability Alerts
   if (cv > 36) alerts.push("High variability detected");
   else if (cv > 20) alerts.push("Moderate variability detected");
 
+  // Mean Glucose Alerts
   if (mean > 250) {
     riskLevel = "High";
     alerts.push("Sustained hyperglycemia");
@@ -75,6 +79,7 @@ export async function calculateRisk(userId: string) {
     alerts.push("Elevated average glucose");
   }
 
+  // Event Alerts
   const hypoEvents = values.filter(v => v < 70).length;
   const hyperEvents = values.filter(v => v > 300).length;
 
@@ -87,14 +92,6 @@ export async function calculateRisk(userId: string) {
     alerts.push("Frequent severe hyperglycemia");
   }
 
-  // 5. Clinical Suggestions
-  const suggestions = {
-    Stable: "Maintain current monitoring frequency. Target fasting glucose < 130 mg/dL.",
-    Moderate: "Review carbohydrate intake and activity levels. Increase testing frequency.",
-    High: "Schedule clinical review within 48-72 hours. Check for medication adherence.",
-    Critical: "Immediate clinical intervention recommended. High risk of acute complications."
-  };
-
   const factors = {
     avgGlucose: Math.round(mean),
     stdDev: Math.round(stdDev * 10) / 10,
@@ -103,7 +100,13 @@ export async function calculateRisk(userId: string) {
     compliance: complianceStatus,
     complianceRate: Math.round(compliancePercentage) + "%",
     alerts: alerts.length > 0 ? alerts.join(", ") : "No acute alerts",
-    suggestion: suggestions[riskLevel]
+    suggestion: riskLevel === "Stable" 
+      ? "Maintain current monitoring frequency. Target fasting glucose < 130 mg/dL."
+      : riskLevel === "Moderate"
+      ? "Review carbohydrate intake and activity levels. Increase testing frequency."
+      : riskLevel === "High"
+      ? "Schedule clinical review within 48-72 hours. Check for medication adherence."
+      : "Immediate clinical intervention recommended. High risk of acute complications."
   };
 
   return { riskLevel, factors };
