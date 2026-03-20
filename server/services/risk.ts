@@ -20,7 +20,7 @@ export async function calculateRisk(userId: string) {
   if (logs.length < 3) {
     return {
       riskLevel: "Stable",
-      factors: { 
+      factors: {
         message: "Insufficient data",
         variability: "Low",
         compliance: "Non-Compliant",
@@ -33,11 +33,11 @@ export async function calculateRisk(userId: string) {
   const values = logs.map(l => Number(l.value));
   const n = values.length;
   const mean = values.reduce((a, b) => a + b, 0) / n;
-  
+
   // Dynamic calculation every time: Std Dev = sqrt( Σ(x − mean)² / n )
   const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
   const stdDev = Math.sqrt(variance);
-  
+
   // 2. CV (%) = (Std Dev / Mean) × 100
   const cv = (stdDev / mean) * 100;
 
@@ -50,11 +50,11 @@ export async function calculateRisk(userId: string) {
   const sortedLogs = [...logs].sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime());
   const firstDate = new Date(sortedLogs[0].measuredAt);
   const lastDate = new Date(sortedLogs[sortedLogs.length - 1].measuredAt);
-  
+
   // Calculate day difference (inclusive)
   const diffTime = Math.abs(lastDate.getTime() - firstDate.getTime());
   const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-  
+
   const uniqueDays = new Set(logs.map(l => new Date(l.measuredAt).toISOString().split('T')[0])).size;
   const compliancePercentage = (uniqueDays / diffDays) * 100;
 
@@ -62,12 +62,50 @@ export async function calculateRisk(userId: string) {
   if (compliancePercentage >= 80) complianceStatus = "Compliant";
   else if (compliancePercentage >= 50) complianceStatus = "Partially Compliant";
 
-  // 4. Determine Risk State and Alerts
+  // 4. Time-of-Day Patterns
+  const periods = {
+    morning: values.filter((_, i) => {
+      const h = new Date(logs[i].measuredAt).getHours();
+      return h >= 5 && h < 11;
+    }),
+    afternoon: values.filter((_, i) => {
+      const h = new Date(logs[i].measuredAt).getHours();
+      return h >= 11 && h < 17;
+    }),
+    evening: values.filter((_, i) => {
+      const h = new Date(logs[i].measuredAt).getHours();
+      return h >= 17 && h < 23;
+    }),
+    night: values.filter((_, i) => {
+      const h = new Date(logs[i].measuredAt).getHours();
+      return h >= 23 || h < 5;
+    })
+  };
+
+  const patterns: string[] = [];
+  if (periods.morning.some(v => v > 180)) patterns.push("Elevated morning readings");
+  if (periods.night.some(v => v < 70)) patterns.push("Nocturnal hypoglycemia risk");
+
+  // 5. Trend Direction (comparing last 3 days vs previous 11 days)
+  const threeDaysAgo = subDays(new Date(), 3);
+  const recentValues = logs.filter(l => new Date(l.measuredAt) >= threeDaysAgo).map(l => Number(l.value));
+  const olderValues = logs.filter(l => new Date(l.measuredAt) < threeDaysAgo).map(l => Number(l.value));
+
+  let trend: "Improving" | "Stable" | "Worsening" = "Stable";
+  if (recentValues.length > 0 && olderValues.length > 0) {
+    const recentMean = recentValues.reduce((a, b) => a + b, 0) / recentValues.length;
+    const olderMean = olderValues.reduce((a, b) => a + b, 0) / olderValues.length;
+    const diff = recentMean - olderMean;
+    if (diff > 20) trend = "Worsening";
+    else if (diff < -20) trend = "Improving";
+  }
+
+  // 6. Determine Risk State and Alerts
   let riskLevel: "Stable" | "Moderate" | "High" | "Critical" = "Stable";
   const alerts: string[] = [];
-  
+
   // Variability Alerts
-  if (cv > 36) alerts.push("High variability detected");
+  if (cv > 36) alerts.push("High variability detected (Glycemic Instability)");
   else if (cv > 20) alerts.push("Moderate variability detected");
 
   // Mean Glucose Alerts
@@ -92,21 +130,28 @@ export async function calculateRisk(userId: string) {
     alerts.push("Severe hyperglycemia: Frequent high readings detected");
   }
 
+  if (trend === "Worsening") {
+    if (riskLevel === "Stable") riskLevel = "Moderate";
+    alerts.push("Control is worsening relative to baseline");
+  }
+
   const factors = {
     avgGlucose: Math.round(mean),
     stdDev: Math.round(stdDev * 10) / 10,
     cv: Math.round(cv * 10) / 10,
     variability: variabilityScore,
     compliance: complianceStatus,
+    trend,
+    patterns: patterns.length > 0 ? patterns.join(", ") : "Normal",
     complianceRate: Math.round(compliancePercentage) + "%",
-    alerts: alerts.length > 0 ? alerts.join(", ") : "No acute alerts",
-    suggestion: riskLevel === "Stable" 
+    alerts: alerts.length > 0 ? alerts.join("; ") : "No acute alerts",
+    suggestion: riskLevel === "Stable"
       ? "Maintain current monitoring frequency. Target fasting glucose < 130 mg/dL."
       : riskLevel === "Moderate"
-      ? "Review carbohydrate intake and activity levels. Increase testing frequency."
-      : riskLevel === "High"
-      ? "Schedule clinical review within 48-72 hours. Check for medication adherence."
-      : "Immediate clinical intervention recommended. High risk of acute complications."
+        ? "Review carbohydrate intake and activity levels. Increase testing frequency."
+        : riskLevel === "High"
+          ? "Schedule clinical review within 48-72 hours. Check for medication adherence."
+          : "Immediate clinical intervention recommended. High risk of acute complications."
   };
 
   return { riskLevel, factors };
@@ -114,7 +159,7 @@ export async function calculateRisk(userId: string) {
 
 export async function updateRiskAssessment(userId: string) {
   const assessment = await calculateRisk(userId);
-  
+
   await db.insert(riskAssessments).values({
     userId,
     riskLevel: assessment.riskLevel as any,

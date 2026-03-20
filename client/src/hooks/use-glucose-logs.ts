@@ -26,12 +26,12 @@ export function useGlucoseLogs(filters?: { userId?: string; startDate?: string; 
       if (filters?.userId) queryParams.append("userId", filters.userId);
       if (filters?.startDate) queryParams.append("startDate", filters.startDate);
       if (filters?.endDate) queryParams.append("endDate", filters.endDate);
-      
+
       const fullUrl = `${url}?${queryParams.toString()}`;
-      
+
       const res = await fetch(fullUrl, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch glucose logs");
-      
+
       // Validation with Zod
       return api.glucoseLogs.list.responses[200].parse(await res.json());
     },
@@ -57,14 +57,22 @@ export function useCreateGlucoseLog() {
       });
 
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error(`[Mutation Error] Status: ${res.status}`, errorData);
+
         if (res.status === 400) {
-          const error = errorSchemas.validation.parse(await res.json());
-          throw new Error(error.message);
+          const result = errorSchemas.validation.safeParse(errorData);
+          if (result.success) {
+            throw new Error(String(result.data.message ?? "Unknown error"));
+          }
+          // If parse fails, fallback to message if available or generic error
+          throw new Error(errorData.message || "Invalid input data");
         }
-        throw new Error("Failed to create log");
+        throw new Error(errorData.message || "Failed to create log");
       }
-      
-      return api.glucoseLogs.create.responses[201].parse(await res.json());
+
+      const responseData = await res.json();
+      return api.glucoseLogs.create.responses[201].parse(responseData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: glucoseKeys.all });
@@ -112,20 +120,20 @@ export function useConfirmGlucoseLog() {
 // === OCR HOOK ===
 export function useOcrProcess() {
   const { toast } = useToast();
-  
+
   return useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const res = await fetch(api.ocr.process.path, {
         method: api.ocr.process.method,
         body: formData,
         credentials: "include",
       });
-      
+
       if (!res.ok) throw new Error("Failed to process image");
-      
+
       return api.ocr.process.responses[200].parse(await res.json());
     },
     onError: () => {

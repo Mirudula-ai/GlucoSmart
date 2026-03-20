@@ -8,15 +8,19 @@ import { useAuth } from "@/hooks/use-auth";
 
 // Pages
 import Home from "@/pages/Home";
+import DoctorDashboard from "@/pages/DoctorDashboard";
+import PatientDetail from "@/pages/PatientDetail";
 import Logs from "@/pages/Logs";
 import Profile from "@/pages/Profile";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
+import { useProfile } from "./hooks/use-profile";
 
 function Router() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { data: profile, isLoading: profileLoading } = useProfile();
 
-  if (isLoading) {
+  if (authLoading || (user && profileLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="animate-pulse flex flex-col items-center gap-4">
@@ -31,12 +35,17 @@ function Router() {
     return <Login />;
   }
 
+  const isDoctor = profile?.role === "doctor";
+
   return (
     <Layout>
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/">
+          {isDoctor ? <DoctorDashboard /> : <Home />}
+        </Route>
         <Route path="/logs" component={Logs} />
         <Route path="/profile" component={Profile} />
+        <Route path="/patient/:id" component={PatientDetail} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

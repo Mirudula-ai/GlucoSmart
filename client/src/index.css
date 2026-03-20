@@ -87,3 +87,30 @@
 ::-webkit-scrollbar-thumb {
   @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
 }
+
+@media print {
+  aside, 
+  header, 
+  button, 
+  .no-print { 
+    display: none !important; 
+  }
+  main { 
+    padding: 0 !important; 
+    margin: 0 !important; 
+  }
+  .container { 
+    max-width: none !important; 
+    width: 100% !important; 
+  }
+  .card, 
+  .rounded-2xl { 
+    box-shadow: none !important; 
+    border: 1px solid #eee !important; 
+    break-inside: avoid; 
+  }
+  body { 
+    background: white !important; 
+    color: black !important; 
+  }
+}

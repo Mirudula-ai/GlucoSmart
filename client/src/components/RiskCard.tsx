@@ -2,6 +2,7 @@ import { useRiskAssessment } from "@/hooks/use-profile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle, Info, ShieldAlert } from "lucide-react";
 import { motion } from "framer-motion";
+import { clsx } from "clsx";
 
 export function RiskCard({ userId }: { userId?: string }) {
   const { data: risk, isLoading } = useRiskAssessment(userId);
@@ -66,45 +67,106 @@ export function RiskCard({ userId }: { userId?: string }) {
   const config = getRiskConfig(risk.riskLevel);
   const Icon = config.icon;
 
+  const getTrendIcon = (trend?: string) => {
+    switch (trend) {
+      case "Improving": return "📉";
+      case "Worsening": return "📈";
+      default: return "➡️";
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className={`border-2 ${config.color.split(' ')[2]} overflow-hidden`}>
+      <Card className={`border-2 ${config.color.split(' ')[2]} overflow-hidden shadow-md`}>
         <div className={`p-6 ${config.color}`}>
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/50 rounded-full backdrop-blur-sm">
+            <div className="p-3 bg-white/50 rounded-full backdrop-blur-sm shadow-inner">
               <Icon className="w-8 h-8" />
             </div>
-            <div>
-              <h3 className="font-display font-bold text-2xl">{config.label}</h3>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="font-display font-bold text-2xl">{config.label}</h3>
+                {(risk.factors as any)?.trend && (
+                  <span className={clsx(
+                    "text-xs font-bold px-2 py-1 rounded-full border bg-white/50",
+                    (risk.factors as any).trend === 'Worsening' ? "text-red-700 border-red-200" :
+                      (risk.factors as any).trend === 'Improving' ? "text-green-700 border-green-200" : "text-gray-700 border-gray-200"
+                  )}>
+                    {getTrendIcon((risk.factors as any).trend)} {(risk.factors as any).trend}
+                  </span>
+                )}
+              </div>
               <p className="opacity-90 font-medium">{config.desc}</p>
             </div>
           </div>
         </div>
         <CardContent className="pt-6">
-          <h4 className="font-semibold mb-2 flex items-center gap-2">
-            <ActivityIcon className="w-4 h-4 text-primary" />
-            Analysis Factors
-          </h4>
-          {risk.factors && (
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-muted-foreground">
-               {/* Just simpler rendering of JSON factors, excluding alerts */}
-               {Object.entries(risk.factors as Record<string, any>)
-                 .filter(([key]) => key !== 'alerts')
-                 .map(([key, val]) => (
-                   <div key={key} className="flex justify-between items-center bg-secondary/30 p-2 rounded-lg">
-                     <span className="capitalize">{key.replace(/([A-Z])/g, " $1").trim()}</span>
-                     <span className="font-mono font-medium text-foreground">{String(val)}</span>
-                   </div>
-                 ))}
-             </div>
+          <h1 className="text-lg font-bold mb-4 flex items-center gap-2 border-b pb-2">
+            <ActivityIcon className="w-5 h-5 text-primary" />
+            Clinical Analysis
+          </h1>
+
+          {!!risk.factors && typeof risk.factors === 'object' && (
+            (() => {
+              const factors = risk.factors as any;
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Core Metrics</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <MetricBox label="Avg Glucose" value={`${factors.avgGlucose} mg/dL`} />
+                      <MetricBox label="Variability (CV)" value={`${factors.cv}%`} sub={factors.variability} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Patterns & Baseline</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm p-2 bg-secondary/20 rounded-lg">
+                        <span className="text-muted-foreground">Compliance</span>
+                        <span className="font-semibold">{factors.complianceRate}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm p-2 bg-secondary/20 rounded-lg">
+                        <span className="text-muted-foreground">Time-of-Day</span>
+                        <span className="font-semibold truncate max-w-[120px]">{factors.patterns || "None detected"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 mt-4 p-4 bg-muted/30 rounded-xl border border-dashed">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                      <ShieldAlert className="w-3 h-3" /> Early Risk Flags
+                    </p>
+                    <p className="text-sm font-medium text-foreground italic">
+                      {factors.alerts || "No predictive flags detected at this time."}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()
           )}
+
+          <div className="mt-6 border-t pt-4">
+            <p className="text-xs text-muted-foreground mb-1 font-bold">CLINICAL SUGGESTION</p>
+            <p className="text-sm text-primary font-medium">{(risk.factors as any)?.suggestion}</p>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
+  );
+}
+
+function MetricBox({ label, value, sub }: { label: string, value: string, sub?: string }) {
+  return (
+    <div className="bg-secondary/30 p-3 rounded-xl border border-secondary/50">
+      <p className="text-[10px] uppercase font-bold text-muted-foreground leading-tight">{label}</p>
+      <p className="text-lg font-bold text-foreground">{value}</p>
+      {sub && <p className="text-[10px] font-medium text-muted-foreground">{sub} Variability</p>}
+    </div>
   );
 }
 

@@ -12,10 +12,10 @@ export default function Profile() {
   const { user } = useAuth();
   const { data: profile, isLoading } = useProfile();
   const updateMutation = useUpdateProfile();
-  
+
   const [role, setRole] = useState("patient");
   // Basic date handling for simplicity in this example
-  const [dob, setDob] = useState(""); 
+  const [dob, setDob] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -29,7 +29,7 @@ export default function Profile() {
   const handleSave = () => {
     updateMutation.mutate({
       role: role as "patient" | "doctor",
-      dateOfBirth: dob ? new Date(dob).toISOString() : undefined,
+      dateOfBirth: dob ? new Date(dob) : undefined,
     });
   };
 
@@ -39,7 +39,7 @@ export default function Profile() {
     <div className="max-w-2xl mx-auto space-y-8">
       <div className="flex items-center gap-4 mb-8">
         <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-          {user?.firstName?.[0] || user?.username[0].toUpperCase()}
+          {user?.firstName?.[0] || 'U'}
         </div>
         <div>
           <h1 className="text-2xl font-bold font-display">{user?.firstName} {user?.lastName}</h1>
@@ -49,7 +49,7 @@ export default function Profile() {
 
       <div className="bg-white p-8 rounded-2xl border shadow-sm space-y-6">
         <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-        
+
         <div className="grid gap-6">
           <div className="space-y-2">
             <Label>I am a...</Label>
@@ -67,10 +67,10 @@ export default function Profile() {
 
           <div className="space-y-2">
             <Label>Date of Birth</Label>
-            <Input 
-              type="date" 
-              value={dob} 
-              onChange={(e) => setDob(e.target.value)} 
+            <Input
+              type="date"
+              value={dob}
+              onChange={(e) => setDob(e.target.value)}
             />
           </div>
         </div>

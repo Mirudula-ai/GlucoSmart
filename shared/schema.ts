@@ -1,7 +1,7 @@
-import { pgTable, text, serial, integer, boolean, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // Export auth models
 export * from "./models/auth";
@@ -11,35 +11,36 @@ import { users } from "./models/auth";
 
 // === PROFILES ===
 // Linked to auth users
-export const profiles = pgTable("profiles", {
-  id: serial("id").primaryKey(),
+export const profiles = sqliteTable("profiles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().references(() => users.id),
   role: text("role", { enum: ["doctor", "patient"] }).default("patient").notNull(),
-  dateOfBirth: timestamp("date_of_birth"),
-  diagnosisDate: timestamp("diagnosis_date"),
+  dateOfBirth: integer("date_of_birth", { mode: "timestamp" }),
+  diagnosisDate: integer("diagnosis_date", { mode: "timestamp" }),
+  doctorId: text("doctor_id").references(() => users.id),
 });
 
 // === GLUCOSE LOGS ===
-export const glucoseLogs = pgTable("glucose_logs", {
-  id: serial("id").primaryKey(),
+export const glucoseLogs = sqliteTable("glucose_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().references(() => users.id),
-  value: numeric("value").notNull(), // stored as string in numeric
+  value: real("value").notNull(), // stored as real in sqlite
   unit: text("unit").default("mg/dL").notNull(),
   type: text("type", { enum: ["fasting", "post_prandial", "hba1c", "random"] }).notNull(),
-  measuredAt: timestamp("measured_at").defaultNow().notNull(),
+  measuredAt: integer("measured_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
   source: text("source", { enum: ["manual", "ocr"] }).default("manual").notNull(),
   imageUrl: text("image_url"), // for OCR proof
   notes: text("notes"),
-  isConfirmed: boolean("is_confirmed").default(true).notNull(), // OCR entries might be unconfirmed initially
+  isConfirmed: integer("is_confirmed", { mode: "boolean" }).default(true).notNull(),
 });
 
 // === RISK ASSESSMENTS ===
-export const riskAssessments = pgTable("risk_assessments", {
-  id: serial("id").primaryKey(),
+export const riskAssessments = sqliteTable("risk_assessments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().references(() => users.id),
   riskLevel: text("risk_level", { enum: ["Stable", "Moderate", "High", "Critical"] }).notNull(),
-  factors: jsonb("factors"), // Store details about why (variability, compliance)
-  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  factors: text("factors", { mode: "json" }), // Store details about why (variability, compliance)
+  generatedAt: integer("generated_at", { mode: "timestamp" }).default(sql`(strftime('%s', 'now'))`).notNull(),
 });
 
 // === RELATIONS ===

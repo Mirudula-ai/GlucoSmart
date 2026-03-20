@@ -1,5 +1,8 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { db } from "./db";
+import { users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { storage } from "./storage";
 import { api, errorSchemas } from "@shared/routes";
 import { z } from "zod";
@@ -11,10 +14,16 @@ import { updateRiskAssessment } from "./services/risk";
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Initialize OpenAI client using Replit AI Integrations env vars
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+const openai = process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ? new OpenAI({
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  })
+  : null;
+
+if (!openai) {
+  console.warn("[AI] OpenAI API key not found. AI features will be disabled.");
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -27,11 +36,15 @@ export async function registerRoutes(
   // Protected middleware
   const requireAuth = isAuthenticated;
 
-  // === Profile ===
   app.get(api.profiles.get.path, requireAuth, async (req: any, res) => {
     const userId = req.user.claims.sub;
-    const profile = await storage.getProfile(userId);
-    if (!profile) return res.status(404).json({ message: "Profile not found" });
+    let profile = await storage.getProfile(userId);
+
+    if (!profile) {
+      // Auto-create base profile for GlucoSmart context
+      profile = await storage.upsertProfile(userId, { role: "patient" });
+    }
+
     res.json(profile);
   });
 
@@ -51,19 +64,20 @@ export async function registerRoutes(
   app.post(api.glucoseLogs.create.path, requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      
+
       // Parse with coercion for dates/numbers
       const bodySchema = api.glucoseLogs.create.input.omit({ userId: true }).extend({
         measuredAt: z.coerce.date(),
-        value: z.string(), 
+        value: z.coerce.number(),
       });
-      
+
+      console.log("[POST /api/logs] Received:", req.body);
       const input = bodySchema.parse(req.body);
-      
+
       const log = await storage.createGlucoseLog({
         ...input,
         userId,
-      });
+      } as any);
 
       // Update risk assessment after new log
       try {
@@ -72,15 +86,17 @@ export async function registerRoutes(
         console.error("Failed to update risk assessment:", err);
         // Don't fail the request if risk calculation fails
       }
-      
+
       res.status(201).json(log);
     } catch (err) {
       if (err instanceof z.ZodError) {
+        console.warn("[POST /api/logs] Validation failed:", err.errors);
         return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          message: String(err.errors[0].message),
+          field: String(err.errors[0].path[0] || ""),
         });
       }
+      console.error("[POST /api/logs] Error:", err);
       res.status(500).json({ message: "Internal Server Error" });
     }
   });
@@ -89,7 +105,7 @@ export async function registerRoutes(
     try {
       const id = Number(req.params.id);
       const userId = req.user.claims.sub;
-      
+
       const log = await storage.confirmGlucoseLog(id);
       if (!log) return res.status(404).json({ message: "Log not found" });
 
@@ -125,7 +141,15 @@ export async function registerRoutes(
       const base64Image = req.file.buffer.toString('base64');
       const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
 
+      console.log(`[OCR] Processing file: ${req.file.originalname} (${req.file.size} bytes, ${req.file.mimetype})`);
+
       // Call OpenAI Vision
+      if (!openai) {
+        console.error("[OCR] OpenAI client not initialized. Check AI_INTEGRATIONS_OPENAI_API_KEY environment variable.");
+        return res.status(503).json({
+          message: "Clinical Intelligence (AI Vision) is currently disabled. Please provide an OpenAI API key to enable OCR features."
+        });
+      }
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -157,6 +181,41 @@ export async function registerRoutes(
       console.error("OCR Error:", error);
       res.status(500).json({ message: "Failed to process image" });
     }
+  });
+
+  // === Patient Management (Doctor only) ===
+  app.get(api.patients.list.path, requireAuth, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const profile = await storage.getProfile(userId);
+
+    if (!profile || profile.role !== "doctor") {
+      return res.status(403).json({ message: "Only doctors can access patient lists" });
+    }
+
+    const patients = await storage.getPatients(userId);
+    res.json(patients);
+  });
+
+  app.post(api.patients.add.path, requireAuth, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const profile = await storage.getProfile(userId);
+
+    if (!profile || profile.role !== "doctor") {
+      return res.status(403).json({ message: "Only doctors can add patients" });
+    }
+
+    const { email } = api.patients.add.input.parse(req.body);
+
+    // Find user by email
+    const [patientUser] = await db.select().from(users).where(eq(users.email, email));
+    if (!patientUser) {
+      return res.status(404).json({ message: "User not found. Ask the patient to log in first." });
+    }
+
+    // Upsert profile with doctorId
+    await storage.upsertProfile(patientUser.id, { doctorId: userId });
+
+    res.json({ message: "Patient added successfully" });
   });
 
   return httpServer;

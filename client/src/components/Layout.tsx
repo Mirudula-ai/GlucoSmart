@@ -1,10 +1,11 @@
 import { useAuth } from "@/hooks/use-auth";
+import { useProfile } from "@/hooks/use-profile";
 import { Link, useLocation } from "wouter";
-import { 
-  Activity, 
-  LogOut, 
-  User, 
-  FileText, 
+import {
+  Activity,
+  LogOut,
+  User,
+  FileText,
   LayoutDashboard,
   Menu,
   X
@@ -15,19 +16,19 @@ import { AnimatePresence, motion } from "framer-motion";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { data: profile } = useProfile();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Simple check for role - in real app, fetch from profile
-  const isDoctor = false; // This would come from useProfile()
+  const isDoctor = profile?.role === "doctor";
 
   const NavItem = ({ href, icon: Icon, label }: { href: string; icon: any; label: string }) => {
     const isActive = location === href;
     return (
       <Link href={href} className={`
         flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-        ${isActive 
-          ? 'bg-primary/10 text-primary font-semibold' 
+        ${isActive
+          ? 'bg-primary/10 text-primary font-semibold'
           : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
       `}>
         <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
@@ -73,14 +74,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden absolute top-16 left-0 right-0 bg-white border-b shadow-xl z-40 p-4 flex flex-col gap-2"
           >
-            <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
-            <NavItem href="/logs" icon={FileText} label="Logs & Reports" />
+            {isDoctor ? (
+              <NavItem href="/" icon={LayoutDashboard} label="Patient Management" />
+            ) : (
+              <>
+                <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
+                <NavItem href="/logs" icon={FileText} label="Logs & Reports" />
+              </>
+            )}
             <NavItem href="/profile" icon={User} label="Profile" />
             <Button variant="destructive" className="mt-4 w-full" onClick={() => logout()}>
               <LogOut className="w-4 h-4 mr-2" /> Log Out
@@ -99,18 +106,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex-1 flex flex-col gap-2">
-          <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
-          <NavItem href="/logs" icon={FileText} label="Logs & Reports" />
+          {isDoctor ? (
+            <NavItem href="/" icon={LayoutDashboard} label="Patient Management" />
+          ) : (
+            <>
+              <NavItem href="/" icon={LayoutDashboard} label="Dashboard" />
+              <NavItem href="/logs" icon={FileText} label="Logs & Reports" />
+            </>
+          )}
           <NavItem href="/profile" icon={User} label="Profile" />
         </nav>
 
         <div className="pt-6 border-t mt-6">
           <div className="flex items-center gap-3 mb-6 px-2">
             <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-primary font-bold">
-              {user.firstName?.[0] || user.username[0].toUpperCase()}
+              {user.firstName?.[0] || 'U'}
             </div>
             <div className="overflow-hidden">
-              <p className="font-medium truncate">{user.firstName || user.username}</p>
+              <p className="font-medium truncate">{user.firstName || 'User'}</p>
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>

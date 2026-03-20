@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { insertGlucoseLogSchema, insertProfileSchema, glucoseLogs, riskAssessments, profiles } from './schema';
+import { insertGlucoseLogSchema, insertProfileSchema, glucoseLogs, riskAssessments, profiles, type InsertProfile } from './schema';
+export type { InsertProfile };
 
 export const errorSchemas = {
   validation: z.object({
-    message: z.string(),
+    message: z.union([z.string(), z.number()]).transform(String),
     field: z.string().optional(),
   }),
   notFound: z.object({
@@ -89,6 +90,33 @@ export const api = {
         }),
       },
     },
+  },
+  patients: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/patients',
+      responses: {
+        200: z.array(z.object({
+          id: z.string(),
+          firstName: z.string().nullable(),
+          lastName: z.string().nullable(),
+          email: z.string().nullable(),
+          profile: z.custom<typeof profiles.$inferSelect>().optional(),
+          latestRisk: z.custom<typeof riskAssessments.$inferSelect>().optional(),
+        })),
+      },
+    },
+    add: {
+      method: 'POST' as const,
+      path: '/api/patients',
+      input: z.object({
+        email: z.string().email(),
+      }),
+      responses: {
+        200: z.object({ message: z.string() }),
+        404: errorSchemas.notFound,
+      },
+    }
   },
 };
 

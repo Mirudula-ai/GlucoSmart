@@ -26,29 +26,29 @@ import { clsx } from "clsx";
 export function LogEntryModal({ children, defaultTab = "manual" }: { children: React.ReactNode, defaultTab?: string }) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(defaultTab);
-  
+
   // Manual Form State
   const [val, setVal] = useState("");
   const [type, setType] = useState<"fasting" | "post_prandial" | "hba1c" | "random">("fasting");
-  
+
   // OCR State
   const [scannedData, setScannedData] = useState<any[]>([]);
-  
+
   const createMutation = useCreateGlucoseLog();
   const ocrMutation = useOcrProcess();
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!val) return;
-    
+
     await createMutation.mutateAsync({
-      value: val,
+      value: parseFloat(val),
       type,
       unit: "mg/dL",
       source: "manual",
       isConfirmed: true,
-      measuredAt: new Date().toISOString(),
-    });
+      measuredAt: new Date(),
+    } as any);
     setOpen(false);
     setVal("");
   };
@@ -63,21 +63,21 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
     }
   };
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
-    onDrop, 
-    accept: {'image/*': ['.jpeg', '.jpg', '.png']},
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png'] },
     maxFiles: 1
   });
 
   const confirmOcrEntry = async (entry: any) => {
     await createMutation.mutateAsync({
-      value: String(entry.value),
+      value: Number(entry.value),
       type: entry.type,
       unit: "mg/dL",
       source: "ocr",
       isConfirmed: true,
-      measuredAt: new Date().toISOString(),
-    });
+      measuredAt: new Date(),
+    } as any);
     // Remove confirmed entry from list
     setScannedData(prev => prev.filter(i => i !== entry));
     if (scannedData.length <= 1) {
@@ -107,10 +107,10 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
               <form onSubmit={handleManualSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="value">Glucose Level (mg/dL)</Label>
-                  <Input 
-                    id="value" 
-                    type="number" 
-                    placeholder="e.g. 110" 
+                  <Input
+                    id="value"
+                    type="number"
+                    placeholder="e.g. 110"
                     value={val}
                     onChange={(e) => setVal(e.target.value)}
                     className="text-lg h-12"
@@ -131,9 +131,9 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 text-base mt-4" 
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base mt-4"
                   disabled={createMutation.isPending || !val}
                 >
                   {createMutation.isPending ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
@@ -148,11 +148,11 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
                   <p className="text-sm font-medium text-muted-foreground mb-2">Review Extracted Values:</p>
                   <div className="space-y-3 max-h-[300px] overflow-y-auto">
                     {scannedData.map((item, idx) => (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: idx * 0.1 }}
-                        key={idx} 
+                        key={idx}
                         className="bg-white border rounded-xl p-4 flex items-center justify-between shadow-sm"
                       >
                         <div>
@@ -171,8 +171,8 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div 
-                    {...getRootProps()} 
+                  <div
+                    {...getRootProps()}
                     className={clsx(
                       "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all h-48",
                       isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/20 hover:border-primary/50 hover:bg-secondary/30",
@@ -196,11 +196,18 @@ export function LogEntryModal({ children, defaultTab = "manual" }: { children: R
                       </>
                     )}
                   </div>
-                  
+
                   {ocrMutation.isError && (
-                    <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Failed to read image. Try again or use manual entry.
+                    <div className="bg-destructive/10 text-destructive text-sm p-4 rounded-xl flex flex-col gap-2 border border-destructive/20">
+                      <div className="flex items-center gap-2 font-bold">
+                        <AlertCircle className="w-5 h-5" />
+                        OCR Diagnosis
+                      </div>
+                      <p className="text-xs leading-relaxed opacity-90">
+                        {ocrMutation.error.message.includes("503") || ocrMutation.error.message.includes("Intelligence")
+                          ? "Clinical Intelligence (AI Vision) is currently disabled. Please contact support or provide an OpenAI API key in the environment to enable glucose report scanning."
+                          : "Failed to read image. Please ensure the text is clear and try again, or use manual entry."}
+                      </p>
                     </div>
                   )}
                 </div>

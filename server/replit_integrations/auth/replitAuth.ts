@@ -5,7 +5,7 @@ import passport from "passport";
 import session from "express-session";
 import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
-import connectPg from "connect-pg-simple";
+// import connectPg from "connect-pg-simple"; // Removed top-level import
 import { authStorage } from "./storage";
 
 const getOidcConfig = memoize(
@@ -18,26 +18,37 @@ const getOidcConfig = memoize(
   { maxAge: 3600 * 1000 }
 );
 
-export function getSession() {
+export async function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
-  return session({
+
+  const sessionOptions: any = {
     secret: process.env.SESSION_SECRET!,
-    store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: false, // Set to false for local dev (http)
       maxAge: sessionTtl,
     },
-  });
+  };
+
+  if (process.env.REPL_ID && process.env.DATABASE_URL?.startsWith("postgres")) {
+    try {
+      const { default: connectPg } = await import("connect-pg-simple");
+      const pgStore = connectPg(session);
+      sessionOptions.store = new pgStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: false,
+        ttl: sessionTtl,
+        tableName: "sessions",
+      });
+      sessionOptions.cookie.secure = true;
+    } catch (e) {
+      console.error("[Auth] Failed to load connect-pg-simple store:", e);
+    }
+  }
+
+  return session(sessionOptions);
 }
 
 function updateUserSession(
@@ -62,9 +73,69 @@ async function upsertUser(claims: any) {
 
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
-  app.use(getSession());
+  app.use(await getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  app.get("/api/login", (req, res, next) => {
+    if (!process.env.REPL_ID) {
+      // Local development mock login
+      const mockUser = {
+        claims: {
+          sub: "local-dev-user-123",
+          email: "dev@example.com",
+          first_name: "Local",
+          last_name: "Developer",
+        },
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+      req.login(mockUser, async (err) => {
+        if (err) return next(err);
+        await upsertUser(mockUser.claims);
+        res.redirect("/");
+      });
+      return;
+    }
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
+    })(req, res, next);
+  });
+
+  app.get("/api/callback", (req, res, next) => {
+    if (!process.env.REPL_ID) {
+      return res.redirect("/");
+    }
+    ensureStrategy(req.hostname);
+    passport.authenticate(`replitauth:${req.hostname}`, {
+      successReturnToOrRedirect: "/",
+      failureRedirect: "/api/login",
+    })(req, res, next);
+  });
+
+  app.get("/api/logout", (req, res) => {
+    req.logout(async () => {
+      if (!process.env.REPL_ID) {
+        return res.redirect("/");
+      }
+      const config = await getOidcConfig();
+      res.redirect(
+        client.buildEndSessionUrl(config, {
+          client_id: process.env.REPL_ID!,
+          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
+        }).href
+      );
+    });
+  });
+
+  if (!process.env.REPL_ID) {
+    console.log("[Auth] Passport configured in Local Mode");
+    return;
+  }
 
   const config = await getOidcConfig();
 
@@ -98,36 +169,6 @@ export async function setupAuth(app: Express) {
       registeredStrategies.add(strategyName);
     }
   };
-
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
-  app.get("/api/login", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
-  });
-
-  app.get("/api/callback", (req, res, next) => {
-    ensureStrategy(req.hostname);
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
-    })(req, res, next);
-  });
-
-  app.get("/api/logout", (req, res) => {
-    req.logout(() => {
-      res.redirect(
-        client.buildEndSessionUrl(config, {
-          client_id: process.env.REPL_ID!,
-          post_logout_redirect_uri: `${req.protocol}://${req.hostname}`,
-        }).href
-      );
-    });
-  });
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
