@@ -62,6 +62,7 @@ async function buildAll() {
 }
 
 buildAll().catch((err) => {
-  console.error(err);
+  console.error(err?.message || err);
+  if (err?.stack) console.error(err.stack);
   process.exit(1);
 });
