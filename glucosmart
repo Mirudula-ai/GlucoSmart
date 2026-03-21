@@ -1,0 +1,55 @@
+# Walkthrough - Diabetic Insight AI Full Stack Overview
+
+I have debugged and stabilized both the **Frontend** and **Backend** of the application. The system is now fully integrated and functional.
+
+## Changes Made
+
+### 1. Platform Compatibility
+- Fixed the `dev` script in [package.json](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/package.json) to be Windows-compatible by removing the `NODE_ENV=development` prefix which was causing shell errors in PowerShell.
+
+### 2. TypeScript Fixes
+- **Client Components**:
+    - Removed references to a non-existent `username` field in [Layout.tsx](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/client/src/components/Layout.tsx) and [Profile.tsx](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/client/src/pages/Profile.tsx), opting for `email` and `name` fields.
+    - Added missing [useProfile](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/client/src/hooks/use-profile.ts#5-17) import in [PatientDetail.tsx](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/client/src/pages/PatientDetail.tsx).
+    - Fixed UI component imports in [Logs.tsx](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/client/src/pages/Logs.tsx).
+- **Server Side**:
+    - Fixed `p-retry` `AbortError` usage in [server/replit_integrations/batch/utils.ts](file:///c:/Users/Mirudula/Downloads/Diabetic-Insight-AI%20%281%29/Diabetic-Insight-AI/server/replit_integrations/batch/utils.ts).
+    - Added explicit null checks for `response.data` in the image integration client and routes to prevent runtime crashes.
+    - Installed missing `@types/multer` for correct server routing types.
+
+### 3. Verification
+- Ran full system TypeScript validation (`tsc`).
+- Verified database connectivity and schema synchronization.
+- Started the integrated development server.
+
+## Full Stack Architecture
+
+### Frontend (Client)
+- **Framework**: [React](https://react.dev/) with [Vite](https://vitejs.dev/) for fast development.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) and [Framer Motion](https://www.framer.com/motion/) for premium, fluid animations.
+- **UI Components**: [Radix UI](https://www.radix-ui.com/) and [Lucide](https://lucide.dev/) icons for accessible, modern design.
+- **State Management**: [TanStack Query](https://tanstack.com/query/latest) for robust server state management.
+
+### Backend (Server)
+- **Runtime**: [Node.js](https://nodejs.org/) with [Express](https://expressjs.com/).
+- **Database**: [SQLite](https://www.sqlite.org/) with [Drizzle ORM](https://orm.drizzle.team/) for type-safe database access.
+- **Authentication**: [Passport.js](https://www.passportjs.org/) for secure session-based authentication.
+- **AI Integration**: Custom OCR engine for glucose report analysis using OpenAI.
+
+### Shared (Type-Safe Schema)
+- Unified schema and API route definitions using [Zod](https://zod.dev/) to ensure 100% type safety between the frontend and backend.
+
+## How to Access the Website
+
+The website is currently running on your local machine at:
+
+**[http://localhost:5000](http://localhost:5000)**
+
+> [!NOTE]
+> Since this is a local development environment, the link is only accessible from your computer.
+
+### Login Details
+You can use your existing credentials or create a new account to test the features like:
+- Glucose Log Entry (Manual)
+- Patient Management (for Doctor role)
+- Risk Assessment Visualization

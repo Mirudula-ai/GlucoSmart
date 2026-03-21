@@ -1,0 +1,18 @@
+﻿client/src/components/Layout.tsx(110,44): error TS2339: Property 'username' does not exist on type '{ id: string; email: string | null; firstName: string | null; lastName: string | null; profileImageUrl: string | null; createdAt: Date | null; updatedAt: Date | null; }'.
+client/src/components/Layout.tsx(113,75): error TS2339: Property 'username' does not exist on type '{ id: string; email: string | null; firstName: string | null; lastName: string | null; profileImageUrl: string | null; createdAt: Date | null; updatedAt: Date | null; }'.
+client/src/components/LogEntryModal.tsx(50,7): error TS2322: Type 'string' is not assignable to type 'Date'.
+client/src/components/LogEntryModal.tsx(79,7): error TS2322: Type 'string' is not assignable to type 'Date'.
+client/src/components/RiskCard.tsx(92,11): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+client/src/hooks/use-profile.ts(2,20): error TS2305: Module '"@shared/routes"' has no exported member 'InsertProfile'.
+client/src/pages/Logs.tsx(4,10): error TS2305: Module '"@/components/ui/table"' has no exported member 'Card'.
+client/src/pages/Logs.tsx(4,16): error TS2305: Module '"@/components/ui/table"' has no exported member 'CardContent'.
+client/src/pages/Logs.tsx(4,29): error TS2305: Module '"@/components/ui/table"' has no exported member 'CardHeader'.
+client/src/pages/Logs.tsx(4,41): error TS2305: Module '"@/components/ui/table"' has no exported member 'CardTitle'.
+client/src/pages/Profile.tsx(42,42): error TS2339: Property 'username' does not exist on type '{ id: string; email: string | null; firstName: string | null; lastName: string | null; profileImageUrl: string | null; createdAt: Date | null; updatedAt: Date | null; }'.
+server/replit_integrations/batch/utils.ts(110,30): error TS2339: Property 'AbortError' does not exist on type '<T>(input: (attemptNumber: number) => T | PromiseLike<T>, options?: Options | undefined) => Promise<T>'.
+server/replit_integrations/batch/utils.ts(159,32): error TS2339: Property 'AbortError' does not exist on type '<T>(input: (attemptNumber: number) => T | PromiseLike<T>, options?: Options | undefined) => Promise<T>'.
+server/replit_integrations/image/client.ts(23,18): error TS18048: 'response.data' is possibly 'undefined'.
+server/replit_integrations/image/client.ts(50,23): error TS18048: 'response.data' is possibly 'undefined'.
+server/replit_integrations/image/routes.ts(20,25): error TS18048: 'response.data' is possibly 'undefined'.
+server/routes.ts(7,20): error TS7016: Could not find a declaration file for module 'multer'. 'C:/Users/Mirudula/Downloads/Diabetic-Insight-AI (1)/Diabetic-Insight-AI/node_modules/multer/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/multer` if it exists or add a new declaration (.d.ts) file containing `declare module 'multer';`

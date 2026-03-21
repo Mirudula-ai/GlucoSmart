@@ -1,0 +1,32 @@
+﻿
+> rest-express@1.0.0 dev
+> NODE_ENV=development tsx server/index.ts
+
+node.exe : 
+'NODE_ENV' is not 
+recognized as an 
+internal or external 
+command,
+At line:1 char:1
++ & "C:\Program Files
+\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: ('NODE_E   
+ NV' is n...terna    
+l command,:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+operable program or 
+batch file.

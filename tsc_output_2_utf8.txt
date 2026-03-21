@@ -1,0 +1,6 @@
+﻿
+> rest-express@1.0.0 check
+> tsc
+
+client/src/components/RiskCard.tsx(92,11): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+server/replit_integrations/image/routes.ts(20,25): error TS18048: 'response.data' is possibly 'undefined'.
